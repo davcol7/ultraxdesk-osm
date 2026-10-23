@@ -1,0 +1,71 @@
+name: Prepara i quadretti
+
+# Una volta al mese (il 2, di notte) e quando vuoi con "Run workflow": scarica da Geofabrik le regioni di
+# regioni.txt, tiene solo strade e sentieri, prepara i quadretti e li pubblica come release "latest".
+on:
+  schedule:
+    - cron: '17 2 2 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quadretti
+  cancel-in-progress: false
+
+jobs:
+  quadretti:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Strumenti (osmium)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q osmium-tool
+          pip install --quiet osmium
+
+      - name: Scarica le regioni da Geofabrik e tiene solo strade e sentieri
+        run: |
+          set -euo pipefail
+          mkdir -p dati
+          nomi=()
+          for r in $(grep -v '^\s*#' regioni.txt | grep -v '^\s*$'); do
+            f="dati/$(echo "$r" | tr '/' '_').osm.pbf"
+            echo "::group::$r"
+            curl -fsSL --retry 5 --retry-delay 30 -o "$f" "https://download.geofabrik.de/$r-latest.osm.pbf"
+            curl -fsSL --retry 5 --retry-delay 30 -o "$f.md5" "https://download.geofabrik.de/$r-latest.osm.pbf.md5"
+            echo "$(cut -d' ' -f1 "$f.md5")  $f" | md5sum -c -
+            ls -la "$f"
+            osmium tags-filter --overwrite -o "${f%.osm.pbf}.vie.osm.pbf" "$f" w/highway
+            rm "$f"
+            echo "::endgroup::"
+            nomi+=("$(basename "$r")")
+          done
+          osmium merge --overwrite -o dati/vie.osm.pbf dati/*.vie.osm.pbf
+          ls -la dati
+          echo "REGIONI=$(IFS=,; echo "${nomi[*]}" | sed 's/,/, /g')" >> "$GITHUB_ENV"
+
+      - name: Prepara i quadretti
+        run: |
+          echo "DATA=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
+          python3 quadretti.py dati/vie.osm.pbf quadretti --data "$(date -u +%Y-%m-%d)" --regioni "$REGIONI"
+          du -sh quadretti
+          ls quadretti | wc -l
+
+      - name: Pubblica la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="dati-$DATA-${GITHUB_RUN_NUMBER}"
+          # prima in bozza: l'app vede la release solo quando ha tutti i file
+          gh release create "$tag" --draft --title "Quadretti del $DATA" \
+            --notes "Strade e sentieri di OpenStreetMap ($REGIONI), dati Geofabrik del $DATA. © OpenStreetMap contributors, licenza ODbL."
+          (cd quadretti && ls | xargs -n 50 gh release upload "$tag" --clobber)
+          gh release edit "$tag" --draft=false --latest
+          # tiene solo le ultime 3 release
+          gh release list --limit 100 --json tagName,isLatest --jq '.[] | select(.isLatest|not) | .tagName' \
+            | tail -n +3 | xargs -r -n 1 gh release delete --yes --cleanup-tag

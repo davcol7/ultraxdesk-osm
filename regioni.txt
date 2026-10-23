@@ -1,0 +1,8 @@
+# Regioni di Geofabrik (https://download.geofabrik.de) da cui preparare i quadretti, una per riga.
+# Per aggiungerne una scrivi il suo percorso come nell'indirizzo di Geofabrik, senza "-latest.osm.pbf":
+# per esempio europe/france/rhone-alpes. Le righe che cominciano con # non contano.
+europe/italy
+europe/slovenia
+europe/croatia
+europe/austria
+europe/switzerland
