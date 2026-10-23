@@ -7,7 +7,8 @@ utenti: solo i dati pubblici di OpenStreetMap, ridotti a quello che serve al fon
 ## Cosa c'è
 
 - `regioni.txt`: le regioni di [Geofabrik](https://download.geofabrik.de) da cui partire (oggi Italia, Slovenia,
-  Croazia, Austria e Svizzera). Per aggiungerne o toglierne una basta cambiare una riga.
+  Croazia, Austria e Svizzera), una per riga con il percorso di Geofabrik e il nome da mostrare nell'app (per esempio
+  `europe/france/rhone-alpes Rodano-Alpi`). Per aggiungerne o toglierne una basta cambiare una riga.
 - `quadretti.py`: tiene di ogni via solo `highway`, `surface`, `tracktype`, `sac_scale`, `smoothness` e la forma, e
   divide tutto in **quadretti** di 0,5 × 0,5 gradi (circa 55 × 40 km): un file `q_<riga>_<colonna>.json.gz` per
   quadretto, più `indice.json` con data, regioni e l'elenco dei quadretti.
