@@ -32,7 +32,9 @@ jobs:
           set -euo pipefail
           mkdir -p dati
           nomi=()
-          for r in $(grep -v '^\s*#' regioni.txt | grep -v '^\s*$'); do
+          while read -r r nome <&3; do
+            [ -z "$r" ] && continue
+            case "$r" in \#*) continue;; esac
             f="dati/$(echo "$r" | tr '/' '_').osm.pbf"
             echo "::group::$r"
             curl -fsSL --retry 5 --retry-delay 30 -o "$f" "https://download.geofabrik.de/$r-latest.osm.pbf"
@@ -42,8 +44,8 @@ jobs:
             osmium tags-filter --overwrite -o "${f%.osm.pbf}.vie.osm.pbf" "$f" w/highway
             rm "$f"
             echo "::endgroup::"
-            nomi+=("$(basename "$r")")
-          done
+            nomi+=("${nome:-$(basename "$r")}")
+          done 3< regioni.txt
           osmium merge --overwrite -o dati/vie.osm.pbf dati/*.vie.osm.pbf
           ls -la dati
           echo "REGIONI=$(IFS=,; echo "${nomi[*]}" | sed 's/,/, /g')" >> "$GITHUB_ENV"
