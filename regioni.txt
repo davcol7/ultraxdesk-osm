@@ -6,3 +6,5 @@ europe/slovenia Slovenia
 europe/croatia Croazia
 europe/austria Austria
 europe/switzerland Svizzera
+europe/france Francia
+europe/spain Spagna
