@@ -6,5 +6,5 @@ europe/slovenia Slovenia
 europe/croatia Croazia
 europe/austria Austria
 europe/switzerland Svizzera
-europe/france Francia
-europe/spain Spagna
+europe/france/rhone-alpes Rodano-Alpi (Francia)
+europe/spain/islas-baleares Isole Baleari (Spagna)
