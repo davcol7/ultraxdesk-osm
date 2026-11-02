@@ -14,6 +14,8 @@ utenti: solo i dati pubblici di OpenStreetMap, ridotti a quello che serve al fon
   quadretto, più `indice.json` con data, regioni e l'elenco dei quadretti.
 - `.github/workflows/quadretti.yml`: l'azione che il **2 di ogni mese** (o quando premi *Run workflow* in *Actions*)
   scarica le regioni, prepara i quadretti e li pubblica come **release** "latest". Restano le ultime 3 release.
+  Se GitHub non risponde (errore 504) ogni passo della pubblicazione viene ritentato fino a 5 volte; se a non riuscire è
+  solo la cancellazione delle release vecchie, l'azione finisce comunque bene e la pulizia si rifà al giro dopo.
 
 UltraXDesk, quando calcoli il fondo di una gara, scarica da
 `https://github.com/davcol7/ultraxdesk-osm/releases/latest/download/` solo l'indice e i quadretti che la traccia
