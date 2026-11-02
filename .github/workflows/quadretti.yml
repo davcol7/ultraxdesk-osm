@@ -62,12 +62,47 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # GitHub a volte risponde "504 couldn't respond in time": riprovo fino a 5 volte, aspettando sempre di più
+          riprova() {
+            for i in 1 2 3 4 5; do
+              "$@" && return 0
+              echo "Tentativo $i non riuscito: riprovo tra $((i * 30)) secondi."
+              sleep $((i * 30))
+            done
+            return 1
+          }
+          # se un tentativo "fallito" in realtà è andato a buon fine, ripeterlo non deve fare danni
+          crea() {
+            gh release view "$tag" >/dev/null 2>&1 && return 0
+            gh release create "$tag" --draft --title "Quadretti del $DATA" \
+              --notes "Strade e sentieri di OpenStreetMap ($REGIONI), dati Geofabrik del $DATA. © OpenStreetMap contributors, licenza ODbL."
+          }
+          elimina() {
+            gh release view "$1" >/dev/null 2>&1 || return 0
+            gh release delete "$1" --yes --cleanup-tag
+          }
           tag="dati-$DATA-${GITHUB_RUN_NUMBER}"
           # prima in bozza: l'app vede la release solo quando ha tutti i file
-          gh release create "$tag" --draft --title "Quadretti del $DATA" \
-            --notes "Strade e sentieri di OpenStreetMap ($REGIONI), dati Geofabrik del $DATA. © OpenStreetMap contributors, licenza ODbL."
-          (cd quadretti && ls | xargs -n 50 gh release upload "$tag" --clobber)
-          gh release edit "$tag" --draft=false --latest
-          # tiene solo le ultime 3 release
-          gh release list --limit 100 --json tagName,isLatest --jq '.[] | select(.isLatest|not) | .tagName' \
-            | tail -n +3 | xargs -r -n 1 gh release delete --yes --cleanup-tag
+          riprova crea
+          # a gruppi di 50 file; --clobber rende sicuro ricaricare un gruppo già caricato a metà
+          cd quadretti
+          ls > ../file.txt
+          split -l 50 ../file.txt ../gruppo-
+          for g in ../gruppo-*; do
+            riprova xargs -a "$g" gh release upload "$tag" --clobber
+          done
+          cd ..
+          riprova gh release edit "$tag" --draft=false --latest
+          echo "Release $tag pubblicata."
+
+          # pulizia: le bozze rimaste da giri falliti e le release vecchie (tiene le ultime 3). Se GitHub non risponde
+          # non è grave: i dati nuovi sono già pubblicati e la pulizia si rifà al prossimo giro.
+          {
+            gh release list --limit 100 --json tagName,isDraft --jq '.[] | select(.isDraft) | .tagName' | grep -vx "$tag" || true
+            gh release list --limit 100 --json tagName,isDraft,isLatest --jq '.[] | select((.isDraft or .isLatest) | not) | .tagName' | tail -n +3
+          } > vecchie.txt || echo "::warning::Elenco delle release non letto: la pulizia si rifà al prossimo giro."
+          while read -r vecchia; do
+            [ -n "$vecchia" ] || continue
+            riprova elimina "$vecchia" \
+              || echo "::warning::Release $vecchia non cancellata: ci riprovo al prossimo giro."
+          done < vecchie.txt
